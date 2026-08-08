@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { ROLES, suggestRoles, hasSpecialRoles } from "./roles";
+import React, { useState, useEffect, useRef } from "react";
+import { ROLES, hasSpecialRoles, CAMP_LABELS_DEFAULT } from "./roles";
+import { PRESETS } from "./presets";
 import { useHostRoom } from "./useHostRoom";
 import { usePlayerConnection } from "./usePlayerConnection";
 
@@ -104,25 +105,24 @@ function MoonHeader({ subtitle }) {
   );
 }
 
-const CAMP_LABEL = { vampires: "🦇 Vampires", villageois: "🌾 Villageois", maudits: "🐾 Maudits" };
-
 /* ============================= JAUGE D'ÉQUILIBRAGE ============================= */
 
-function BalanceGauge({ ratio, hasPool }) {
+function BalanceGauge({ ratio, hasPool, campLabels }) {
+  const labels = campLabels || CAMP_LABELS_DEFAULT;
   const pct = hasPool ? Math.min(100, Math.max(0, ratio * 100)) : 50;
   let status = "Compose ton tirage…";
   let color = "#9A8088";
   if (hasPool) {
-    if (ratio < 0.2) { status = "Penche côté villageois — pas assez de vampires"; color = "#6FA0D6"; }
-    else if (ratio > 0.4) { status = "Penche côté vampires — trop de vampires"; color = "#E0654F"; }
+    if (ratio < 0.2) { status = `Penche côté ${labels.villageois} — pas assez de ${labels.vampires}`; color = "#6FA0D6"; }
+    else if (ratio > 0.4) { status = `Penche côté ${labels.vampires} — trop de ${labels.vampires}`; color = "#E0654F"; }
     else { status = "Équilibré"; color = "#7BBF6A"; }
   }
 
   return (
     <div style={{ marginTop: 4 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#7A6068", marginBottom: 6 }}>
-        <span>🌾 villageois</span>
-        <span>🦇 vampires</span>
+        <span>{labels.villageois}</span>
+        <span>{labels.vampires}</span>
       </div>
       <div style={{
         position: "relative", height: 10, borderRadius: 999,
@@ -157,7 +157,9 @@ function Home({ goHost, goJoin }) {
 
 /* ============================= CRÉATION MJ ============================= */
 
-function HostSetup({ roles, hostRoom, onCreated }) {
+function HostSetup({ hostRoom, onCreated }) {
+  const [presetId, setPresetId] = useState(PRESETS[0].id);
+  const preset = PRESETS.find(p => p.id === presetId) || PRESETS[0];
   const [count, setCount] = useState(9);
   const [pool, setPool] = useState([]);
   const [creating, setCreating] = useState(false);
@@ -170,14 +172,22 @@ function HostSetup({ roles, hostRoom, onCreated }) {
   const [customCamp, setCustomCamp] = useState("villageois");
   const [customDesc, setCustomDesc] = useState("");
   const [customError, setCustomError] = useState("");
+  const importInputRef = useRef(null);
 
-  const allRoles = { ...roles, ...customRoles };
+  const allRoles = { ...preset.roles, ...customRoles };
 
-  useEffect(() => { applySuggestion(9); }, []); // eslint-disable-line
+  useEffect(() => { setPool(PRESETS[0].suggest(9)); }, []); // eslint-disable-line
 
   const applySuggestion = (n) => {
     setCount(n);
-    setPool(suggestRoles(n));
+    setPool(preset.suggest(n));
+  };
+
+  const switchPreset = (p) => {
+    setPresetId(p.id);
+    setCount(9);
+    setPool(p.suggest(9));
+    setExpandedId(null);
   };
 
   const changeQty = (id, delta) => {
@@ -208,6 +218,55 @@ function HostSetup({ roles, hostRoom, onCreated }) {
     if (expandedId === id) setExpandedId(null);
   };
 
+  const exportCustomRoles = () => {
+    const blob = new Blob([JSON.stringify(customRoles, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "village-maudit-roles.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importRolesFromFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch {
+        setCustomError("Fichier JSON invalide.");
+        return;
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        setCustomError("Format de fichier inattendu.");
+        return;
+      }
+      const imported = {};
+      for (const role of Object.values(parsed)) {
+        if (!role || typeof role !== "object") continue;
+        const nom = String(role.nom || "").trim().slice(0, 40);
+        const desc = String(role.desc || "").trim().slice(0, 400);
+        if (!nom || !desc) continue;
+        const camp = ["vampires", "villageois", "maudits"].includes(role.camp) ? role.camp : "villageois";
+        const emoji = String(role.emoji || "🎴").slice(0, 4);
+        const special = role.special ? String(role.special).trim().slice(0, 300) : undefined;
+        const id = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        imported[id] = { nom, emoji, camp, desc, ...(special ? { special } : {}) };
+      }
+      if (Object.keys(imported).length === 0) {
+        setCustomError("Aucun rôle valide trouvé dans ce fichier.");
+      } else {
+        setCustomRoles(prev => ({ ...prev, ...imported }));
+        setCustomError("");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const loupsCount = pool.filter(id => allRoles[id]?.camp === "vampires").length;
   const villageCount = pool.length - loupsCount;
   const ratio = pool.length ? loupsCount / pool.length : 0;
@@ -216,7 +275,7 @@ function HostSetup({ roles, hostRoom, onCreated }) {
     setCreating(true);
     setError("");
     try {
-      const code = await hostRoom.create(pool, customRoles);
+      const code = await hostRoom.create(pool, allRoles, preset.campLabels);
       onCreated(code);
     } catch (e) {
       setError(e.message || "Impossible de créer la salle.");
@@ -227,6 +286,21 @@ function HostSetup({ roles, hostRoom, onCreated }) {
   return (
     <Shell>
       <MoonHeader subtitle="Composez le tirage de cartes" />
+
+      <div className="lg-card lg-card-wide" style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 13, color: "#9A8088", marginBottom: 10 }}>THÈME DE JEU</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {PRESETS.map(p => (
+            <button key={p.id} onClick={() => switchPreset(p)} className="lg-btn"
+              style={{ padding: "10px 16px", fontSize: 14, background: presetId === p.id ? "#8C1F3B" : "#241318", border: "1px solid #4A2A34" }}>
+              {p.nom}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, color: "#7A6068", marginTop: 10, lineHeight: 1.5 }}>
+          {preset.description}
+        </div>
+      </div>
 
       <div className="lg-card" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: "#9A8088", marginBottom: 10 }}>GUIDE D'ÉQUILIBRAGE — nombre de joueurs attendu</div>
@@ -239,17 +313,17 @@ function HostSetup({ roles, hostRoom, onCreated }) {
           ))}
         </div>
         <div style={{ fontSize: 12, color: "#7A6068", marginTop: 10, lineHeight: 1.5 }}>
-          Règle classique : environ 1 vampire pour 3 joueurs, minimum 6 joueurs conseillé.
+          Règle classique : environ 1 personnage maléfique pour 3 joueurs, minimum 6 joueurs conseillé.
         </div>
       </div>
 
       <div className="lg-card lg-card-wide" style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, fontSize: 13 }}>
-          <span>🦇 Vampires : {loupsCount}</span>
-          <span>🌾 Village : {villageCount}</span>
+          <span>{preset.campLabels.vampires} : {loupsCount}</span>
+          <span>{preset.campLabels.villageois} : {villageCount}</span>
           <span style={{ color: "#9A8088" }}>Total : {pool.length}</span>
         </div>
-        <BalanceGauge ratio={ratio} hasPool={pool.length >= 4} />
+        <BalanceGauge ratio={ratio} hasPool={pool.length >= 4} campLabels={preset.campLabels} />
         <div style={{ fontSize: 11, color: "#7A6068", marginTop: 14, marginBottom: 6 }}>
           Touche un rôle pour voir son pouvoir.
         </div>
@@ -302,9 +376,9 @@ function HostSetup({ roles, hostRoom, onCreated }) {
             </div>
             <select value={customCamp} onChange={e => setCustomCamp(e.target.value)}
               className="lg-input" style={{ marginBottom: 8 }}>
-              <option value="villageois">🌾 Villageois</option>
-              <option value="vampires">🦇 Vampires</option>
-              <option value="maudits">🐾 Maudits</option>
+              {Object.entries(preset.campLabels).map(([camp, label]) => (
+                <option key={camp} value={camp}>{label}</option>
+              ))}
             </select>
             <textarea placeholder="Description du pouvoir" value={customDesc}
               onChange={e => setCustomDesc(e.target.value)} maxLength={400} rows={3}
@@ -321,6 +395,19 @@ function HostSetup({ roles, hostRoom, onCreated }) {
             ➕ Créer un rôle personnalisé
           </button>
         )}
+
+        <input ref={importInputRef} type="file" accept="application/json" style={{ display: "none" }}
+          onChange={importRolesFromFile} />
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button className="lg-btn lg-btn-secondary" style={{ flex: 1, fontSize: 13 }}
+            onClick={() => importInputRef.current?.click()}>
+            ⬆️ Importer des rôles
+          </button>
+          <button className="lg-btn lg-btn-secondary" style={{ flex: 1, fontSize: 13 }}
+            disabled={Object.keys(customRoles).length === 0} onClick={exportCustomRoles}>
+            ⬇️ Exporter mes rôles perso
+          </button>
+        </div>
       </div>
 
       <div className="narrow">
@@ -466,7 +553,7 @@ function PlayerGame({ playerRoom, roles }) {
 
       {room.winner && (
         <div className="lg-card" style={{ textAlign: "center", marginBottom: 16 }}>
-          <div style={{ fontSize: 20 }}>{CAMP_LABEL[room.winner]} — Victoire</div>
+          <div style={{ fontSize: 20 }}>{(room.campLabels || CAMP_LABELS_DEFAULT)[room.winner]} — Victoire</div>
         </div>
       )}
 
@@ -513,6 +600,7 @@ function HostGame({ code, hostRoom, roles }) {
 
   const effectiveRoles = { ...roles, ...(room.customRoles || {}) };
   const special = hasSpecialRoles(room.rolePool, effectiveRoles);
+  const campLabels = room.campLabels || CAMP_LABELS_DEFAULT;
 
   return (
     <Shell>
@@ -520,14 +608,15 @@ function HostGame({ code, hostRoom, roles }) {
 
       {room.winner && (
         <div className="lg-card" style={{ textAlign: "center", marginBottom: 16 }}>
-          <div style={{ fontSize: 20 }}>{CAMP_LABEL[room.winner]} — Victoire</div>
+          <div style={{ fontSize: 20 }}>{campLabels[room.winner]} — Victoire</div>
         </div>
       )}
 
       {special && !room.winner && (
         <div style={{ fontSize: 12, color: "#D89A4E", marginBottom: 12, textAlign: "center" }}>
-          ⚠️ Cette partie contient un rôle à victoire spéciale (Lieur de Sang, Enfant Trouvé, Ménestrel…).
-          La détection automatique ne couvre que Vampires vs Village — déclare la victoire manuellement si besoin.
+          ⚠️ Cette partie contient un rôle à victoire spéciale. La détection
+          automatique ne couvre que {campLabels.vampires} vs {campLabels.villageois}
+          — déclare la victoire manuellement si besoin.
         </div>
       )}
 
@@ -561,9 +650,10 @@ function HostGame({ code, hostRoom, roles }) {
       <div className="lg-card" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: "#9A8088", marginBottom: 10 }}>DÉCLARATION MANUELLE</div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => hostRoom.manualWin("vampires")}>🦇 Vampires</button>
-          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => hostRoom.manualWin("villageois")}>🌾 Village</button>
-          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => hostRoom.manualWin("maudits")}>🐾 Maudits</button>
+          {Object.entries(campLabels).map(([camp, label]) => (
+            <button key={camp} className="lg-btn lg-btn-secondary" style={{ flex: 1 }}
+              onClick={() => hostRoom.manualWin(camp)}>{label}</button>
+          ))}
         </div>
       </div>
 
@@ -587,7 +677,7 @@ export default function App() {
     return <Home goHost={() => setView("host-setup")} goJoin={() => setView("join")} />;
   }
   if (view === "host-setup") {
-    return <HostSetup roles={ROLES} hostRoom={hostRoom} onCreated={(c) => { setCode(c); setView("host-lobby"); }} />;
+    return <HostSetup hostRoom={hostRoom} onCreated={(c) => { setCode(c); setView("host-lobby"); }} />;
   }
   if (view === "host-lobby") {
     return <HostLobby code={code} hostRoom={hostRoom} onLaunched={() => setView("host-game")} />;

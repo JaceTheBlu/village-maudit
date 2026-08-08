@@ -59,10 +59,10 @@ export function useHostRoom() {
     });
   }, [handleJoin, broadcast]);
 
-  const create = useCallback((rolePool, customRoles = {}) => {
+  const create = useCallback((rolePool, customRoles = {}, campLabels) => {
     return createHostPeer().then(({ peer, code }) => {
       codeRef.current = code;
-      stateRef.current = createRoomState(rolePool, customRoles);
+      stateRef.current = createRoomState(rolePool, customRoles, campLabels);
       peer.on("connection", wireConn);
       broadcast();
       return code;

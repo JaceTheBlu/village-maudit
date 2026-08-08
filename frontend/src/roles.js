@@ -1,3 +1,9 @@
+export const CAMP_LABELS_DEFAULT = {
+  vampires: "🦇 Vampires",
+  villageois: "🌾 Villageois",
+  maudits: "🐾 Maudits",
+};
+
 export const ROLES = {
   vampire: {
     nom: "Vampire", camp: "vampires", emoji: "🦇",

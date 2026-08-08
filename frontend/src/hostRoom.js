@@ -1,10 +1,11 @@
-import { ROLES } from "./roles";
+import { ROLES, CAMP_LABELS_DEFAULT } from "./roles";
 
-export function createRoomState(rolePool, customRoles = {}) {
+export function createRoomState(rolePool, customRoles = {}, campLabels = CAMP_LABELS_DEFAULT) {
   return {
     status: "lobby", // lobby | playing | ended
     rolePool,
-    customRoles, // rôles créés par le MJ, à transmettre aux joueurs
+    customRoles, // catalogue de rôles (preset + persos), à transmettre aux joueurs
+    campLabels, // libellés des camps pour ce preset, à transmettre aux joueurs
     players: [], // {id, pseudo, roleId, alive}
     winner: null,
   };
@@ -35,6 +36,7 @@ export function toPublicState(state, code) {
     status: state.status,
     rolePool: state.rolePool,
     customRoles: state.customRoles,
+    campLabels: state.campLabels,
     players: state.players.map((p) => ({
       id: p.id, pseudo: p.pseudo, roleId: p.roleId, alive: p.alive,
     })),

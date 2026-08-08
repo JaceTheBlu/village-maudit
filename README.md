@@ -5,7 +5,13 @@ Application de distribution de cartes pour une partie de loup-garou façon
 salle et choisit les cartes (guide d'équilibrage intégré), les joueurs
 rejoignent avec un code (un mot, ex. "LOUP"), le MJ lance la partie, et chaque
 joueur voit sa carte sur son téléphone avec un bouton "Je suis mort". Les
-victoires Vampires / Village sont calculées automatiquement.
+victoires sont calculées automatiquement.
+
+Deux presets de rôles sont disponibles au setup : "Ma version" (thème
+vampires) et "Loup-Garou classique" (rôles du Loup-Garou de Thiercelieux).
+Le MJ peut aussi créer ses propres rôles, et exporter/importer ses rôles
+personnalisés au format JSON (`frontend/src/presets.js` pour ajouter un
+preset directement dans le code).
 
 ## Stack
 
