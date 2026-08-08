@@ -1,16 +1,12 @@
 import Peer from "peerjs";
+import { randomCodeWord } from "./words";
 
 // Espace de nommage pour éviter les collisions avec d'autres apps sur le
 // serveur de signalisation public PeerJS (les identifiants sont globaux).
 const APP_PREFIX = "vilmaudit-";
-const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
 export function genCode() {
-  let s = "";
-  for (let i = 0; i < 5; i++) {
-    s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
-  }
-  return s;
+  return randomCodeWord();
 }
 
 export function genId() {

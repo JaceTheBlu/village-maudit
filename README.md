@@ -3,7 +3,7 @@
 Application de distribution de cartes pour une partie de loup-garou façon
 "Village Maudit" (thème vampires folkloriques). Un Meneur de Jeu crée une
 salle et choisit les cartes (guide d'équilibrage intégré), les joueurs
-rejoignent avec un code à 5 caractères, le MJ lance la partie, et chaque
+rejoignent avec un code (un mot, ex. "LOUP"), le MJ lance la partie, et chaque
 joueur voit sa carte sur son téléphone avec un bouton "Je suis mort". Les
 victoires Vampires / Village sont calculées automatiquement.
 

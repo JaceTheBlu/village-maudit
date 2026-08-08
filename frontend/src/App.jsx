@@ -219,7 +219,7 @@ function HostLobby({ code, hostRoom, onLaunched }) {
       <MoonHeader subtitle="Salle d'attente" />
       <div className="lg-card" style={{ textAlign: "center", marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: "#9A8088" }}>CODE DE LA SALLE</div>
-        <div className="lg-title" style={{ fontSize: 40, letterSpacing: "0.15em", color: "#D89A4E" }}>{code}</div>
+        <div className="lg-title" style={{ fontSize: code.length > 7 ? 28 : 36, letterSpacing: "0.1em", color: "#D89A4E", wordBreak: "break-word" }}>{code}</div>
         <div style={{ fontSize: 12, color: "#7A6068", marginTop: 4 }}>{room.rolePool.length} cartes préparées</div>
       </div>
 
@@ -281,7 +281,7 @@ function Join({ playerRoom, onJoined }) {
       <MoonHeader subtitle="Rejoindre une salle" />
       <div className="lg-card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <input className="lg-input" placeholder="Code de la salle" value={code}
-          onChange={e => setCode(e.target.value.toUpperCase())} maxLength={5} style={{ letterSpacing: "0.2em", textAlign: "center" }} />
+          onChange={e => setCode(e.target.value.toUpperCase())} maxLength={12} style={{ letterSpacing: "0.1em", textAlign: "center" }} />
         <input className="lg-input" placeholder="Ton pseudo" value={pseudo}
           onChange={e => setPseudo(e.target.value)} maxLength={20} />
         {error && <div style={{ color: "#E6A5A5", fontSize: 13 }}>{error}</div>}
