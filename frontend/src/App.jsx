@@ -140,6 +140,16 @@ function HostSetup({ roles, hostRoom, onCreated }) {
   const [pool, setPool] = useState([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
+  const [customRoles, setCustomRoles] = useState({});
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customNom, setCustomNom] = useState("");
+  const [customEmoji, setCustomEmoji] = useState("");
+  const [customCamp, setCustomCamp] = useState("villageois");
+  const [customDesc, setCustomDesc] = useState("");
+  const [customError, setCustomError] = useState("");
+
+  const allRoles = { ...roles, ...customRoles };
 
   useEffect(() => { applySuggestion(9); }, []); // eslint-disable-line
 
@@ -157,7 +167,26 @@ function HostSetup({ roles, hostRoom, onCreated }) {
     });
   };
 
-  const loupsCount = pool.filter(id => roles[id]?.camp === "vampires").length;
+  const addCustomRole = () => {
+    const nom = customNom.trim();
+    const desc = customDesc.trim();
+    if (!nom || !desc) { setCustomError("Nom et description requis."); return; }
+    const id = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setCustomRoles(prev => ({
+      ...prev,
+      [id]: { nom, emoji: customEmoji.trim() || "🎴", camp: customCamp, desc },
+    }));
+    setCustomNom(""); setCustomEmoji(""); setCustomCamp("villageois"); setCustomDesc("");
+    setCustomError(""); setShowCustomForm(false);
+  };
+
+  const removeCustomRole = (id) => {
+    setCustomRoles(prev => { const c = { ...prev }; delete c[id]; return c; });
+    setPool(prev => prev.filter(r => r !== id));
+    if (expandedId === id) setExpandedId(null);
+  };
+
+  const loupsCount = pool.filter(id => allRoles[id]?.camp === "vampires").length;
   const villageCount = pool.length - loupsCount;
   const ratio = pool.length ? loupsCount / pool.length : 0;
 
@@ -165,7 +194,7 @@ function HostSetup({ roles, hostRoom, onCreated }) {
     setCreating(true);
     setError("");
     try {
-      const code = await hostRoom.create(pool);
+      const code = await hostRoom.create(pool, customRoles);
       onCreated(code);
     } catch (e) {
       setError(e.message || "Impossible de créer la salle.");
@@ -199,27 +228,77 @@ function HostSetup({ roles, hostRoom, onCreated }) {
           <span style={{ color: "#9A8088" }}>Total : {pool.length}</span>
         </div>
         <BalanceGauge ratio={ratio} hasPool={pool.length >= 4} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 340, overflowY: "auto", marginTop: 16 }}>
-          {Object.entries(roles).map(([id, role]) => {
+        <div style={{ fontSize: 11, color: "#7A6068", marginTop: 14, marginBottom: 6 }}>
+          Touche un rôle pour voir son pouvoir.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 340, overflowY: "auto" }}>
+          {Object.entries(allRoles).map(([id, role]) => {
             const cnt = pool.filter(r => r === id).length;
+            const isExpanded = expandedId === id;
+            const isCustom = id in customRoles;
             return (
-              <div key={id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 10, background: cnt > 0 ? "#241318" : "transparent" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                  <span>{role.emoji}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{role.nom}</div>
-                    <div style={{ fontSize: 11, color: "#7A6068" }}>{role.camp}</div>
+              <div key={id} style={{ borderRadius: 10, background: cnt > 0 ? "#241318" : "transparent" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, cursor: "pointer" }}
+                    onClick={() => setExpandedId(isExpanded ? null : id)}>
+                    <span>{role.emoji}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{role.nom}</div>
+                      <div style={{ fontSize: 11, color: "#7A6068" }}>{role.camp}{isCustom && " · perso"}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <button onClick={() => changeQty(id, -1)} disabled={cnt === 0} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #4A2A34", background: "#170d14", color: "#EDE0D8" }}>−</button>
+                    <span style={{ minWidth: 14, textAlign: "center" }}>{cnt}</span>
+                    <button onClick={() => changeQty(id, 1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #4A2A34", background: "#170d14", color: "#EDE0D8" }}>+</button>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <button onClick={() => changeQty(id, -1)} disabled={cnt === 0} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #4A2A34", background: "#170d14", color: "#EDE0D8" }}>−</button>
-                  <span style={{ minWidth: 14, textAlign: "center" }}>{cnt}</span>
-                  <button onClick={() => changeQty(id, 1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #4A2A34", background: "#170d14", color: "#EDE0D8" }}>+</button>
-                </div>
+                {isExpanded && (
+                  <div style={{ padding: "0 10px 12px 34px", fontSize: 12, color: "#C9BDC2", lineHeight: 1.5 }}>
+                    {role.desc}
+                    {role.special && <div style={{ marginTop: 6, fontSize: 11, color: "#D89A4E" }}>ℹ️ {role.special}</div>}
+                    {isCustom && (
+                      <button onClick={() => removeCustomRole(id)}
+                        style={{ marginTop: 8, background: "none", border: "none", color: "#8C1F3B", fontSize: 11, padding: 0 }}>
+                        supprimer ce rôle personnalisé
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+
+        {showCustomForm ? (
+          <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#170d14", border: "1px solid #4A2A34" }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input className="lg-input" placeholder="Emoji" value={customEmoji}
+                onChange={e => setCustomEmoji(e.target.value)} maxLength={4} style={{ width: 60, textAlign: "center" }} />
+              <input className="lg-input" placeholder="Nom du rôle" value={customNom}
+                onChange={e => setCustomNom(e.target.value)} maxLength={30} style={{ flex: 1 }} />
+            </div>
+            <select value={customCamp} onChange={e => setCustomCamp(e.target.value)}
+              className="lg-input" style={{ marginBottom: 8 }}>
+              <option value="villageois">🌾 Villageois</option>
+              <option value="vampires">🦇 Vampires</option>
+              <option value="maudits">🐾 Maudits</option>
+            </select>
+            <textarea placeholder="Description du pouvoir" value={customDesc}
+              onChange={e => setCustomDesc(e.target.value)} maxLength={400} rows={3}
+              className="lg-input" style={{ marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
+            {customError && <div style={{ color: "#E6A5A5", fontSize: 12, marginBottom: 8 }}>{customError}</div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="lg-btn lg-btn-primary" style={{ flex: 1 }} onClick={addCustomRole}>Ajouter</button>
+              <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => { setShowCustomForm(false); setCustomError(""); }}>Annuler</button>
+            </div>
+          </div>
+        ) : (
+          <button className="lg-btn lg-btn-secondary" style={{ width: "100%", marginTop: 14 }}
+            onClick={() => setShowCustomForm(true)}>
+            ➕ Créer un rôle personnalisé
+          </button>
+        )}
       </div>
 
       {error && <div style={{ color: "#E6A5A5", fontSize: 13, marginBottom: 10 }}>{error}</div>}
@@ -352,7 +431,8 @@ function PlayerGame({ playerRoom, roles }) {
     );
   }
 
-  const role = roles[me.roleId];
+  const effectiveRoles = { ...roles, ...(room.customRoles || {}) };
+  const role = effectiveRoles[me.roleId];
 
   return (
     <Shell>
@@ -403,7 +483,8 @@ function HostGame({ code, hostRoom, roles }) {
 
   if (!room) return <Shell><MoonHeader /><div>Connexion à la salle…</div></Shell>;
 
-  const special = hasSpecialRoles(room.rolePool);
+  const effectiveRoles = { ...roles, ...(room.customRoles || {}) };
+  const special = hasSpecialRoles(room.rolePool, effectiveRoles);
 
   return (
     <Shell>
@@ -426,7 +507,7 @@ function HostGame({ code, hostRoom, roles }) {
         <div style={{ fontSize: 13, color: "#9A8088", marginBottom: 10 }}>JOUEURS</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {room.players.map(p => {
-            const role = roles[p.roleId];
+            const role = effectiveRoles[p.roleId];
             return (
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#241318", borderRadius: 10, padding: "9px 12px", opacity: p.alive ? 1 : 0.5 }}>
                 <div>

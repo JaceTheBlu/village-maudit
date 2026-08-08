@@ -80,13 +80,8 @@ export const ROLES = {
   },
 };
 
-export function roleCamp(roleId) {
-  const r = ROLES[roleId];
-  return r ? r.camp : null;
-}
-
-export function hasSpecialRoles(rolePool) {
-  return rolePool.some((id) => Boolean(ROLES[id]?.special));
+export function hasSpecialRoles(rolePool, rolesMap = ROLES) {
+  return rolePool.some((id) => Boolean(rolesMap[id]?.special));
 }
 
 export function suggestRoles(n) {
