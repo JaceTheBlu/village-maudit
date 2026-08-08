@@ -113,16 +113,16 @@ function BalanceGauge({ ratio, hasPool }) {
   let status = "Compose ton tirage…";
   let color = "#9A8088";
   if (hasPool) {
-    if (ratio < 0.2) { status = "Trop froid — pas assez de vampires"; color = "#6FA0D6"; }
-    else if (ratio > 0.4) { status = "Trop chaud — surchauffe de vampires"; color = "#E0654F"; }
+    if (ratio < 0.2) { status = "Penche côté villageois — pas assez de vampires"; color = "#6FA0D6"; }
+    else if (ratio > 0.4) { status = "Penche côté vampires — trop de vampires"; color = "#E0654F"; }
     else { status = "Équilibré"; color = "#7BBF6A"; }
   }
 
   return (
     <div style={{ marginTop: 4 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#7A6068", marginBottom: 6 }}>
-        <span>🌾 froid</span>
-        <span>🦇 chaud</span>
+        <span>🌾 villageois</span>
+        <span>🦇 vampires</span>
       </div>
       <div style={{
         position: "relative", height: 10, borderRadius: 999,
