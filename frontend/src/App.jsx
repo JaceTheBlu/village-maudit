@@ -107,14 +107,29 @@ function MoonHeader({ subtitle }) {
 
 /* ============================= JAUGE D'ÉQUILIBRAGE ============================= */
 
+// Zone équilibrée : entre LOW et HIGH. On la recentre visuellement sur la
+// barre (BAND_START–BAND_END) pour qu'un tirage classique (~1/3, au milieu
+// de la zone) affiche le curseur au centre plutôt que dans le premier tiers.
+const BALANCE_LOW = 0.2;
+const BALANCE_HIGH = 0.4;
+const BAND_START = 40;
+const BAND_END = 60;
+
+function ratioToPct(ratio) {
+  const r = Math.min(1, Math.max(0, ratio));
+  if (r <= BALANCE_LOW) return (r / BALANCE_LOW) * BAND_START;
+  if (r <= BALANCE_HIGH) return BAND_START + ((r - BALANCE_LOW) / (BALANCE_HIGH - BALANCE_LOW)) * (BAND_END - BAND_START);
+  return BAND_END + ((r - BALANCE_HIGH) / (1 - BALANCE_HIGH)) * (100 - BAND_END);
+}
+
 function BalanceGauge({ ratio, hasPool, campLabels }) {
   const labels = campLabels || CAMP_LABELS_DEFAULT;
-  const pct = hasPool ? Math.min(100, Math.max(0, ratio * 100)) : 50;
+  const pct = hasPool ? ratioToPct(ratio) : 50;
   let status = "Compose ton tirage…";
   let color = "#9A8088";
   if (hasPool) {
-    if (ratio < 0.2) { status = `Penche côté ${labels.villageois} — pas assez de ${labels.vampires}`; color = "#6FA0D6"; }
-    else if (ratio > 0.4) { status = `Penche côté ${labels.vampires} — trop de ${labels.vampires}`; color = "#E0654F"; }
+    if (ratio < BALANCE_LOW) { status = `Penche côté ${labels.villageois} — pas assez de ${labels.vampires}`; color = "#6FA0D6"; }
+    else if (ratio > BALANCE_HIGH) { status = `Penche côté ${labels.vampires} — trop de ${labels.vampires}`; color = "#E0654F"; }
     else { status = "Équilibré"; color = "#7BBF6A"; }
   }
 
@@ -126,7 +141,7 @@ function BalanceGauge({ ratio, hasPool, campLabels }) {
       </div>
       <div style={{
         position: "relative", height: 10, borderRadius: 999,
-        background: "linear-gradient(90deg, #4A6FA5 0%, #7BBF6A 20%, #7BBF6A 40%, #B23A3A 100%)",
+        background: `linear-gradient(90deg, #4A6FA5 0%, #7BBF6A ${BAND_START}%, #7BBF6A ${BAND_END}%, #B23A3A 100%)`,
       }}>
         <div style={{
           position: "absolute", top: "50%", left: `${pct}%`,
@@ -340,7 +355,7 @@ function HostSetup({ hostRoom, onCreated }) {
                     <span>{role.emoji}</span>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{role.nom}</div>
-                      <div style={{ fontSize: 11, color: "#7A6068" }}>{role.camp}{isCustom && " · perso"}</div>
+                      <div style={{ fontSize: 11, color: "#7A6068" }}>{preset.campLabels[role.camp] || role.camp}{isCustom && " · perso"}</div>
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
