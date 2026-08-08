@@ -299,8 +299,10 @@ function Join({ playerRoom, onJoined }) {
 /* ============================= VUE JOUEUR ============================= */
 
 function PlayerGame({ playerRoom, roles }) {
-  const { room, playerId, send } = playerRoom;
+  const { room, playerId, kicked, send } = playerRoom;
   const [flipped, setFlipped] = useState(false);
+
+  if (kicked) return <Shell><MoonHeader /><div>Tu as été expulsé de la partie par le Meneur de Jeu.</div></Shell>;
 
   if (!room) return <Shell><MoonHeader /><div>Connexion à la salle…</div></Shell>;
 
@@ -401,10 +403,16 @@ function HostGame({ code, hostRoom, roles }) {
                   <div style={{ fontWeight: 600 }}>{p.pseudo} {!p.alive && "💀"}</div>
                   <div style={{ fontSize: 11, color: "#7A6068" }}>{role ? `${role.emoji} ${role.nom}` : "—"}</div>
                 </div>
-                <button onClick={() => hostRoom.toggleAlive(p.id)}
-                  style={{ fontSize: 12, background: "none", border: "1px solid #4A2A34", borderRadius: 8, color: "#EDE0D8", padding: "6px 10px" }}>
-                  {p.alive ? "marquer mort" : "ressusciter"}
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => hostRoom.toggleAlive(p.id)}
+                    style={{ fontSize: 12, background: "none", border: "1px solid #4A2A34", borderRadius: 8, color: "#EDE0D8", padding: "6px 10px" }}>
+                    {p.alive ? "marquer mort" : "ressusciter"}
+                  </button>
+                  <button onClick={() => hostRoom.kick(p.id)}
+                    style={{ fontSize: 12, background: "none", border: "none", color: "#8C1F3B", padding: "6px 4px" }}>
+                    expulser
+                  </button>
+                </div>
               </div>
             );
           })}

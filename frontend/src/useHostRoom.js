@@ -98,7 +98,12 @@ export function useHostRoom() {
   const kick = useCallback((playerId) => {
     const state = stateRef.current;
     state.players = state.players.filter((p) => p.id !== playerId);
-    connsRef.current.delete(playerId);
+    const conn = connsRef.current.get(playerId);
+    if (conn) {
+      if (conn.open) conn.send({ type: "kicked" });
+      connsRef.current.delete(playerId);
+      conn.close();
+    }
     broadcast();
   }, [broadcast]);
 

@@ -13,6 +13,7 @@ export function usePlayerConnection() {
   const [room, setRoom] = useState(null);
   const [playerId, setPlayerId] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [kicked, setKicked] = useState(false);
 
   const doConnect = useCallback((code, pseudo, handlers) => {
     connectToHost(code)
@@ -32,6 +33,10 @@ export function usePlayerConnection() {
             setRoom(msg.room);
           } else if (msg.type === "error") {
             handlers?.reject?.(new Error(msg.message));
+          } else if (msg.type === "kicked") {
+            sessionRef.current.joined = false;
+            setKicked(true);
+            setRoom(null);
           }
         });
 
@@ -56,6 +61,7 @@ export function usePlayerConnection() {
 
   const join = useCallback((code, pseudo) => {
     clearTimeout(retryTimerRef.current);
+    setKicked(false);
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(
         () => reject(new Error("Le meneur de jeu ne répond pas.")),
@@ -72,5 +78,5 @@ export function usePlayerConnection() {
     if (connRef.current?.open) connRef.current.send(payload);
   }, []);
 
-  return { room, playerId, connected, join, send };
+  return { room, playerId, connected, kicked, join, send };
 }
