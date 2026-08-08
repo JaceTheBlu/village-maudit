@@ -84,6 +84,41 @@ function MoonHeader({ subtitle }) {
 
 const CAMP_LABEL = { vampires: "🦇 Vampires", villageois: "🌾 Villageois", maudits: "🐾 Maudits" };
 
+/* ============================= JAUGE D'ÉQUILIBRAGE ============================= */
+
+function BalanceGauge({ ratio, hasPool }) {
+  const pct = hasPool ? Math.min(100, Math.max(0, ratio * 100)) : 50;
+  let status = "Compose ton tirage…";
+  let color = "#9A8088";
+  if (hasPool) {
+    if (ratio < 0.2) { status = "Trop froid — pas assez de vampires"; color = "#6FA0D6"; }
+    else if (ratio > 0.4) { status = "Trop chaud — surchauffe de vampires"; color = "#E0654F"; }
+    else { status = "Équilibré"; color = "#7BBF6A"; }
+  }
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#7A6068", marginBottom: 6 }}>
+        <span>🌾 froid</span>
+        <span>🦇 chaud</span>
+      </div>
+      <div style={{
+        position: "relative", height: 10, borderRadius: 999,
+        background: "linear-gradient(90deg, #4A6FA5 0%, #7BBF6A 20%, #7BBF6A 40%, #B23A3A 100%)",
+      }}>
+        <div style={{
+          position: "absolute", top: "50%", left: `${pct}%`,
+          width: 20, height: 20, borderRadius: "50%",
+          background: "#EDE0D8", border: "3px solid #170d14",
+          transform: "translate(-50%, -50%)",
+          transition: "left .35s cubic-bezier(.4,.2,.2,1)",
+        }} />
+      </div>
+      <div style={{ fontSize: 12, color, marginTop: 10, textAlign: "center", fontWeight: 600 }}>{status}</div>
+    </div>
+  );
+}
+
 /* ============================= ACCUEIL ============================= */
 
 function Home({ goHost, goJoin }) {
@@ -125,7 +160,6 @@ function HostSetup({ roles, hostRoom, onCreated }) {
   const loupsCount = pool.filter(id => roles[id]?.camp === "vampires").length;
   const villageCount = pool.length - loupsCount;
   const ratio = pool.length ? loupsCount / pool.length : 0;
-  const ratioWarning = pool.length >= 4 && (ratio < 0.2 || ratio > 0.4);
 
   const create = async () => {
     setCreating(true);
@@ -164,12 +198,8 @@ function HostSetup({ roles, hostRoom, onCreated }) {
           <span>🌾 Village : {villageCount}</span>
           <span style={{ color: "#9A8088" }}>Total : {pool.length}</span>
         </div>
-        {ratioWarning && (
-          <div style={{ fontSize: 12, color: "#D89A4E", marginBottom: 10 }}>
-            ⚠️ Ratio de vampires inhabituel — vérifiez l'équilibrage avant de lancer.
-          </div>
-        )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 340, overflowY: "auto" }}>
+        <BalanceGauge ratio={ratio} hasPool={pool.length >= 4} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 340, overflowY: "auto", marginTop: 16 }}>
           {Object.entries(roles).map(([id, role]) => {
             const cnt = pool.filter(r => r === id).length;
             return (
