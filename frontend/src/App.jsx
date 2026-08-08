@@ -43,8 +43,11 @@ function Shell({ children }) {
         .lg-card {
           background: #1D1116; border: 1px solid #33202A; border-radius: 16px;
           padding: 18px; touch-action: manipulation;
+          max-width: 480px; margin-left: auto; margin-right: auto;
         }
-        .flip-outer { perspective: 1200px; margin-bottom: 16px; }
+        .lg-card-wide { max-width: none; }
+        .narrow { max-width: 480px; margin-left: auto; margin-right: auto; }
+        .flip-outer { perspective: 1200px; margin-bottom: 16px; max-width: 480px; margin-left: auto; margin-right: auto; }
         .flip-inner {
           position: relative; min-height: 300px; width: 100%;
           transform-style: preserve-3d; cursor: pointer; touch-action: manipulation;
@@ -66,8 +69,27 @@ function Shell({ children }) {
         ::selection { background: #8C1F3B55; }
         button, input { -webkit-appearance: none; appearance: none; }
         [style*="overflowY"] { -webkit-overflow-scrolling: touch; }
+        .lg-shell-inner { width: 100%; max-width: 480px; }
+        .list-grid {
+          display: flex; flex-direction: column; gap: 8px;
+          max-height: 340px; overflow-y: auto;
+        }
+        .grid-flow { display: flex; flex-direction: column; gap: 8px; }
+        @media (min-width: 700px) {
+          .lg-shell-inner { max-width: 760px; }
+          .list-grid, .grid-flow {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            align-content: start;
+          }
+          .list-grid { max-height: 460px; }
+        }
+        @media (min-width: 1100px) {
+          .lg-shell-inner { max-width: 1040px; }
+          .list-grid, .grid-flow { grid-template-columns: repeat(3, 1fr); }
+          .list-grid { max-height: 560px; }
+        }
       `}</style>
-      <div style={{ width: "100%", maxWidth: 480 }}>{children}</div>
+      <div className="lg-shell-inner">{children}</div>
     </div>
   );
 }
@@ -125,7 +147,7 @@ function Home({ goHost, goJoin }) {
   return (
     <Shell>
       <MoonHeader subtitle="Distribution de cartes pour votre partie" />
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="narrow" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <button className="lg-btn lg-btn-primary" onClick={goHost}>🕯️ Créer une partie (Meneur de Jeu)</button>
         <button className="lg-btn lg-btn-secondary" onClick={goJoin}>🚪 Rejoindre une partie</button>
       </div>
@@ -221,7 +243,7 @@ function HostSetup({ roles, hostRoom, onCreated }) {
         </div>
       </div>
 
-      <div className="lg-card" style={{ marginBottom: 16 }}>
+      <div className="lg-card lg-card-wide" style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, fontSize: 13 }}>
           <span>🦇 Vampires : {loupsCount}</span>
           <span>🌾 Village : {villageCount}</span>
@@ -231,7 +253,7 @@ function HostSetup({ roles, hostRoom, onCreated }) {
         <div style={{ fontSize: 11, color: "#7A6068", marginTop: 14, marginBottom: 6 }}>
           Touche un rôle pour voir son pouvoir.
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 340, overflowY: "auto" }}>
+        <div className="list-grid">
           {Object.entries(allRoles).map(([id, role]) => {
             const cnt = pool.filter(r => r === id).length;
             const isExpanded = expandedId === id;
@@ -271,7 +293,7 @@ function HostSetup({ roles, hostRoom, onCreated }) {
         </div>
 
         {showCustomForm ? (
-          <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#170d14", border: "1px solid #4A2A34" }}>
+          <div className="narrow" style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#170d14", border: "1px solid #4A2A34" }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <input className="lg-input" placeholder="Emoji" value={customEmoji}
                 onChange={e => setCustomEmoji(e.target.value)} maxLength={4} style={{ width: 60, textAlign: "center" }} />
@@ -301,10 +323,12 @@ function HostSetup({ roles, hostRoom, onCreated }) {
         )}
       </div>
 
-      {error && <div style={{ color: "#E6A5A5", fontSize: 13, marginBottom: 10 }}>{error}</div>}
-      <button className="lg-btn lg-btn-primary" disabled={pool.length < 3 || creating} onClick={create}>
-        {creating ? "Création…" : `Créer la salle (${pool.length} cartes)`}
-      </button>
+      <div className="narrow">
+        {error && <div style={{ color: "#E6A5A5", fontSize: 13, marginBottom: 10 }}>{error}</div>}
+        <button className="lg-btn lg-btn-primary" style={{ width: "100%" }} disabled={pool.length < 3 || creating} onClick={create}>
+          {creating ? "Création…" : `Créer la salle (${pool.length} cartes)`}
+        </button>
+      </div>
     </Shell>
   );
 }
@@ -332,12 +356,12 @@ function HostLobby({ code, hostRoom, onLaunched }) {
         <div style={{ fontSize: 12, color: "#7A6068", marginTop: 4 }}>{room.rolePool.length} cartes préparées</div>
       </div>
 
-      <div className="lg-card" style={{ marginBottom: 16 }}>
+      <div className="lg-card lg-card-wide" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: "#9A8088", marginBottom: 10 }}>
           JOUEURS CONNECTÉS ({room.players.length}/{room.rolePool.length})
         </div>
         {room.players.length === 0 && <div style={{ color: "#7A6068", fontSize: 14 }}>En attente de joueurs…</div>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="grid-flow">
           {room.players.map(p => (
             <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#241318", borderRadius: 10, padding: "9px 12px" }}>
               <span>{p.pseudo}</span>
@@ -354,10 +378,12 @@ function HostLobby({ code, hostRoom, onLaunched }) {
         </div>
       )}
 
-      <button className="lg-btn lg-btn-primary" disabled={!canLaunch}
-        onClick={hostRoom.launch}>
-        🌙 Lancer la partie
-      </button>
+      <div className="narrow">
+        <button className="lg-btn lg-btn-primary" style={{ width: "100%" }} disabled={!canLaunch}
+          onClick={hostRoom.launch}>
+          🌙 Lancer la partie
+        </button>
+      </div>
     </Shell>
   );
 }
@@ -468,8 +494,10 @@ function PlayerGame({ playerRoom, roles }) {
               </div>
             </div>
           </div>
-          <button className="lg-btn" style={{ width: "100%", background: "#33141A", color: "#E6A5A5", border: "1px solid #6B1F30" }}
-            onClick={() => send({ type: "declare_death", playerId })}>💀 Je suis mort</button>
+          <div className="narrow">
+            <button className="lg-btn" style={{ width: "100%", background: "#33141A", color: "#E6A5A5", border: "1px solid #6B1F30" }}
+              onClick={() => send({ type: "declare_death", playerId })}>💀 Je suis mort</button>
+          </div>
         </>
       )}
     </Shell>
@@ -503,9 +531,9 @@ function HostGame({ code, hostRoom, roles }) {
         </div>
       )}
 
-      <div className="lg-card" style={{ marginBottom: 16 }}>
+      <div className="lg-card lg-card-wide" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: "#9A8088", marginBottom: 10 }}>JOUEURS</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="grid-flow">
           {room.players.map(p => {
             const role = effectiveRoles[p.roleId];
             return (
@@ -539,8 +567,10 @@ function HostGame({ code, hostRoom, roles }) {
         </div>
       </div>
 
-      <button className="lg-btn" style={{ width: "100%", background: "#241318", color: "#9A8088", border: "1px solid #4A2A34" }}
-        onClick={hostRoom.reset}>↺ Réinitialiser (retour au lobby)</button>
+      <div className="narrow">
+        <button className="lg-btn" style={{ width: "100%", background: "#241318", color: "#9A8088", border: "1px solid #4A2A34" }}
+          onClick={hostRoom.reset}>↺ Réinitialiser (retour au lobby)</button>
+      </div>
     </Shell>
   );
 }
