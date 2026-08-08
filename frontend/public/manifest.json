@@ -2,12 +2,12 @@
   "name": "Le Village Maudit",
   "short_name": "Village Maudit",
   "description": "Distribution de cartes pour une partie de loup-garou",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#170d14",
   "theme_color": "#170d14",
   "orientation": "portrait",
   "icons": [
-    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "./icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
