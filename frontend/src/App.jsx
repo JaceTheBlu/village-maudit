@@ -44,6 +44,25 @@ function Shell({ children }) {
           background: #1D1116; border: 1px solid #33202A; border-radius: 16px;
           padding: 18px; touch-action: manipulation;
         }
+        .flip-outer { perspective: 1200px; margin-bottom: 16px; }
+        .flip-inner {
+          position: relative; min-height: 300px; width: 100%;
+          transform-style: preserve-3d; cursor: pointer; touch-action: manipulation;
+          transition: transform .55s cubic-bezier(.4,.2,.2,1);
+        }
+        .flip-inner.is-flipped { transform: rotateY(180deg); }
+        .flip-face {
+          position: absolute; inset: 0; box-sizing: border-box;
+          background: #1D1116; border: 1px solid #33202A; border-radius: 16px;
+          backface-visibility: hidden; -webkit-backface-visibility: hidden;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          padding: 28px 20px; text-align: center;
+        }
+        .flip-face.back {
+          transform: rotateY(180deg);
+          align-items: flex-start; justify-content: flex-start; text-align: left;
+          overflow-y: auto;
+        }
         ::selection { background: #8C1F3B55; }
         button, input { -webkit-appearance: none; appearance: none; }
         [style*="overflowY"] { -webkit-overflow-scrolling: touch; }
@@ -321,19 +340,21 @@ function PlayerGame({ playerRoom, roles }) {
         </div>
       ) : (
         <>
-          <div className="lg-card" onClick={() => setFlipped(f => !f)}
-            style={{ textAlign: "center", cursor: "pointer", padding: "34px 18px", marginBottom: 16 }}>
-            <div style={{ fontSize: 54 }}>{role?.emoji}</div>
-            <div className="lg-title" style={{ fontSize: 26, marginTop: 10, color: "#D89A4E" }}>{role?.nom}</div>
-            <div style={{ fontSize: 11, color: "#7A6068", marginTop: 10 }}>
-              {flipped ? "touche pour cacher" : "touche pour voir ton pouvoir"}
-            </div>
-            {flipped && (
-              <div style={{ marginTop: 14, fontSize: 14, color: "#C9BDC2", lineHeight: 1.5, textAlign: "left" }}>
-                {role?.desc}
-                {role?.special && <div style={{ marginTop: 8, fontSize: 12, color: "#D89A4E" }}>ℹ️ {role.special}</div>}
+          <div className="flip-outer">
+            <div className={`flip-inner${flipped ? " is-flipped" : ""}`} onClick={() => setFlipped(f => !f)}>
+              <div className="flip-face">
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🦇</div>
+                <div style={{ fontSize: 50 }}>{role?.emoji}</div>
+                <div className="lg-title" style={{ fontSize: 24, marginTop: 8, color: "#D89A4E" }}>{role?.nom}</div>
+                <div style={{ fontSize: 11, color: "#7A6068", marginTop: 14 }}>touche pour voir ton pouvoir</div>
               </div>
-            )}
+              <div className="flip-face back">
+                <div style={{ fontSize: 12, color: "#9A8088", marginBottom: 8 }}>{role?.emoji} {role?.nom}</div>
+                <div style={{ fontSize: 14, color: "#C9BDC2", lineHeight: 1.5 }}>{role?.desc}</div>
+                {role?.special && <div style={{ marginTop: 10, fontSize: 12, color: "#D89A4E" }}>ℹ️ {role.special}</div>}
+                <div style={{ fontSize: 11, color: "#7A6068", marginTop: 14 }}>touche pour retourner</div>
+              </div>
+            </div>
           </div>
           <button className="lg-btn" style={{ width: "100%", background: "#33141A", color: "#E6A5A5", border: "1px solid #6B1F30" }}
             onClick={() => send({ type: "declare_death", playerId })}>💀 Je suis mort</button>
