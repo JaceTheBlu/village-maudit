@@ -9,65 +9,67 @@ victoires Vampires / Village sont calculées automatiquement.
 
 ## Stack
 
-- **Backend** : FastAPI + WebSocket (état des salles en mémoire, pas de
-  base de données — suffisant pour des parties entre amis).
-- **Frontend** : React + Vite, servi par le backend lui-même (un seul
-  service, un seul déploiement).
-- Pas de Docker : déploiement en process Python nu.
+- **Frontend uniquement** : React + Vite. Site 100% statique, aucun
+  backend à héberger.
+- **Communication temps réel** : WebRTC peer-to-peer via
+  [PeerJS](https://peerjs.com/) (`frontend/src/peer.js`). Le navigateur
+  du Meneur de Jeu fait office de "serveur" : il garde l'état de la
+  salle en mémoire (`frontend/src/useHostRoom.js`) et les autres
+  joueurs s'y connectent directement, sans passer par un serveur à toi.
+  Seul le service de signalisation public gratuit de PeerJS est utilisé
+  pour l'établissement initial des connexions.
 
 ## Développement local
 
-Terminal 1 — backend :
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-Terminal 2 — frontend :
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Ouvre `http://localhost:5173`. Le frontend proxy `/api` et `/ws` vers le
-backend sur `:8000` (voir `vite.config.js`).
+Ouvre `http://localhost:5173`.
 
-## Build de prod (un seul service)
+## Build
 
 ```bash
-bash build.sh
-cd backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+cd frontend
+npm run build
 ```
 
-Le frontend buildé est copié dans `backend/app/static` et servi directement
-par FastAPI — une seule app, un seul port, un seul domaine.
+Le résultat statique (`frontend/dist`) peut être servi par n'importe
+quel hébergeur de fichiers statiques.
 
-## Déploiement public (sans Docker)
+## Déploiement — GitHub Pages + sous-domaine custom
 
-Le repo contient un `render.yaml` prêt à l'emploi pour
-[Render](https://render.com) :
+Le repo contient un workflow GitHub Actions
+(`.github/workflows/deploy.yml`) qui build et publie automatiquement
+`frontend/dist` sur GitHub Pages à chaque push.
 
-1. Connecte ce repo GitHub à Render (New → Blueprint, il détecte
-   `render.yaml` automatiquement).
-2. Render exécute `bash build.sh` puis lance `uvicorn`.
-3. Une fois déployé, ajoute un enregistrement **CNAME** chez ton
-   registrar pointant `sous-domaine.tondomaine.com` vers l'URL fournie
-   par Render, puis configure le domaine custom dans les settings Render
-   (HTTPS géré automatiquement).
+Étapes une fois côté GitHub / DNS (pas automatisables depuis ce repo) :
 
-Railway ou Fly.io fonctionnent aussi de façon similaire (build Python
-natif, pas besoin de Dockerfile) si tu préfères une autre plateforme.
+1. Dans les **Settings → Pages** du repo, choisis la source
+   **GitHub Actions**.
+2. Chez le registrar/DNS de `ggestin.com`, ajoute un enregistrement
+   **CNAME** : `villagemaudit` → `<ton-user-github>.github.io`.
+3. Une fois le DNS propagé, dans **Settings → Pages**, renseigne le
+   domaine custom `villagemaudit.ggestin.com` (le fichier
+   `frontend/public/CNAME` est déjà en place et sera republié à chaque
+   déploiement) puis coche **Enforce HTTPS** une fois le certificat
+   généré par GitHub.
 
 ## Limites connues
 
-- Pas de persistance : si le process backend redémarre, les salles en
-  cours sont perdues.
-- Pas de reconnexion automatique côté joueur après un rechargement de
-  page : il faut ressaisir le même pseudo + code pour retrouver sa carte.
+- Le Meneur de Jeu doit garder son onglet ouvert pendant toute la
+  partie : c'est son navigateur qui héberge l'état de la salle. S'il
+  ferme l'onglet, la salle disparaît.
+- Pas de persistance : un rechargement de page côté MJ réinitialise la
+  salle (aucune sauvegarde côté serveur, il n'y en a pas).
+- Reconnexion automatique côté joueur (même pseudo) en cas de coupure
+  réseau en cours de partie ; en cas de rechargement complet de page,
+  il faut resaisir le même pseudo + code pour retrouver sa carte.
+- La connexion P2P dépend du NAT/pare-feu de chacun : ça fonctionne en
+  wifi/4G classique, mais peut échouer sur certains réseaux
+  d'entreprise très restrictifs (pas de serveur TURN configuré).
 - Les rôles à victoire "solo" (Lieur de Sang si camps opposés, Enfant
   Trouvé, Ménestrel Envoûteur) ne sont pas détectés automatiquement — le
   MJ dispose de boutons de déclaration manuelle de victoire.

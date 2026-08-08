@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { fetchRoles, fetchSuggestion, createRoom, joinRoom, useRoomSocket } from "./api";
+import React, { useState, useEffect } from "react";
+import { ROLES, suggestRoles, hasSpecialRoles } from "./roles";
+import { useHostRoom } from "./useHostRoom";
+import { usePlayerConnection } from "./usePlayerConnection";
 
 /* ============================= UI HELPERS ============================= */
 
@@ -79,7 +81,7 @@ function Home({ goHost, goJoin }) {
 
 /* ============================= CRÉATION MJ ============================= */
 
-function HostSetup({ roles, onCreated }) {
+function HostSetup({ roles, hostRoom, onCreated }) {
   const [count, setCount] = useState(9);
   const [pool, setPool] = useState([]);
   const [creating, setCreating] = useState(false);
@@ -87,10 +89,9 @@ function HostSetup({ roles, onCreated }) {
 
   useEffect(() => { applySuggestion(9); }, []); // eslint-disable-line
 
-  const applySuggestion = async (n) => {
+  const applySuggestion = (n) => {
     setCount(n);
-    const suggestion = await fetchSuggestion(n);
-    setPool(suggestion);
+    setPool(suggestRoles(n));
   };
 
   const changeQty = (id, delta) => {
@@ -111,10 +112,10 @@ function HostSetup({ roles, onCreated }) {
     setCreating(true);
     setError("");
     try {
-      const { code, hostToken } = await createRoom(pool);
-      onCreated(code, hostToken);
+      const code = await hostRoom.create(pool);
+      onCreated(code);
     } catch (e) {
-      setError(e.message);
+      setError(e.message || "Impossible de créer la salle.");
     }
     setCreating(false);
   };
@@ -182,21 +183,21 @@ function HostSetup({ roles, onCreated }) {
 
 /* ============================= LOBBY MJ ============================= */
 
-function HostLobby({ code, hostToken, roles, onLaunched }) {
-  const { room, connected, send } = useRoomSocket(code);
+function HostLobby({ code, hostRoom, onLaunched }) {
+  const room = hostRoom.room;
 
   useEffect(() => {
     if (room?.status === "playing") onLaunched();
   }, [room?.status]); // eslint-disable-line
 
-  if (!room) return <Shell><MoonHeader /><div>Connexion à la salle…</div></Shell>;
+  if (!room) return <Shell><MoonHeader /><div>Préparation de la salle…</div></Shell>;
 
   const canLaunch = room.players.length > 0 && room.players.length <= room.rolePool.length;
   const shortage = room.rolePool.length - room.players.length;
 
   return (
     <Shell>
-      <MoonHeader subtitle={connected ? "Salle d'attente" : "Reconnexion…"} />
+      <MoonHeader subtitle="Salle d'attente" />
       <div className="lg-card" style={{ textAlign: "center", marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: "#9A8088" }}>CODE DE LA SALLE</div>
         <div className="lg-title" style={{ fontSize: 40, letterSpacing: "0.15em", color: "#D89A4E" }}>{code}</div>
@@ -212,7 +213,7 @@ function HostLobby({ code, hostToken, roles, onLaunched }) {
           {room.players.map(p => (
             <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#241318", borderRadius: 10, padding: "9px 12px" }}>
               <span>{p.pseudo}</span>
-              <button onClick={() => send({ type: "kick", playerId: p.id, hostToken })}
+              <button onClick={() => hostRoom.kick(p.id)}
                 style={{ background: "none", border: "none", color: "#8C1F3B", fontSize: 12 }}>retirer</button>
             </div>
           ))}
@@ -226,7 +227,7 @@ function HostLobby({ code, hostToken, roles, onLaunched }) {
       )}
 
       <button className="lg-btn lg-btn-primary" disabled={!canLaunch}
-        onClick={() => send({ type: "launch", hostToken })}>
+        onClick={hostRoom.launch}>
         🌙 Lancer la partie
       </button>
     </Shell>
@@ -235,7 +236,7 @@ function HostLobby({ code, hostToken, roles, onLaunched }) {
 
 /* ============================= REJOINDRE ============================= */
 
-function Join({ onJoined }) {
+function Join({ playerRoom, onJoined }) {
   const [code, setCode] = useState("");
   const [pseudo, setPseudo] = useState("");
   const [error, setError] = useState("");
@@ -248,10 +249,10 @@ function Join({ onJoined }) {
     if (!c || !p) { setError("Code et pseudo requis."); return; }
     setBusy(true);
     try {
-      const { playerId } = await joinRoom(c, p);
-      onJoined(c, playerId);
+      await playerRoom.join(c, p);
+      onJoined();
     } catch (e) {
-      setError(e.message);
+      setError(e.message || "Connexion impossible.");
     }
     setBusy(false);
   };
@@ -278,8 +279,8 @@ function Join({ onJoined }) {
 
 /* ============================= VUE JOUEUR ============================= */
 
-function PlayerGame({ code, playerId, roles }) {
-  const { room, send } = useRoomSocket(code);
+function PlayerGame({ playerRoom, roles }) {
+  const { room, playerId, send } = playerRoom;
   const [flipped, setFlipped] = useState(false);
 
   if (!room) return <Shell><MoonHeader /><div>Connexion à la salle…</div></Shell>;
@@ -344,12 +345,12 @@ function PlayerGame({ code, playerId, roles }) {
 
 /* ============================= VUE MJ EN JEU ============================= */
 
-function HostGame({ code, hostToken, roles }) {
-  const { room, send } = useRoomSocket(code);
+function HostGame({ code, hostRoom, roles }) {
+  const room = hostRoom.room;
 
   if (!room) return <Shell><MoonHeader /><div>Connexion à la salle…</div></Shell>;
 
-  const special = room.rolePool.some(id => roles[id]?.special);
+  const special = hasSpecialRoles(room.rolePool);
 
   return (
     <Shell>
@@ -379,7 +380,7 @@ function HostGame({ code, hostToken, roles }) {
                   <div style={{ fontWeight: 600 }}>{p.pseudo} {!p.alive && "💀"}</div>
                   <div style={{ fontSize: 11, color: "#7A6068" }}>{role ? `${role.emoji} ${role.nom}` : "—"}</div>
                 </div>
-                <button onClick={() => send({ type: "toggle_alive", playerId: p.id, hostToken })}
+                <button onClick={() => hostRoom.toggleAlive(p.id)}
                   style={{ fontSize: 12, background: "none", border: "1px solid #4A2A34", borderRadius: 8, color: "#EDE0D8", padding: "6px 10px" }}>
                   {p.alive ? "marquer mort" : "ressusciter"}
                 </button>
@@ -392,14 +393,14 @@ function HostGame({ code, hostToken, roles }) {
       <div className="lg-card" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: "#9A8088", marginBottom: 10 }}>DÉCLARATION MANUELLE</div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => send({ type: "manual_win", camp: "vampires", hostToken })}>🦇 Vampires</button>
-          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => send({ type: "manual_win", camp: "villageois", hostToken })}>🌾 Village</button>
-          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => send({ type: "manual_win", camp: "maudits", hostToken })}>🐾 Maudits</button>
+          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => hostRoom.manualWin("vampires")}>🦇 Vampires</button>
+          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => hostRoom.manualWin("villageois")}>🌾 Village</button>
+          <button className="lg-btn lg-btn-secondary" style={{ flex: 1 }} onClick={() => hostRoom.manualWin("maudits")}>🐾 Maudits</button>
         </div>
       </div>
 
       <button className="lg-btn" style={{ width: "100%", background: "#241318", color: "#9A8088", border: "1px solid #4A2A34" }}
-        onClick={() => send({ type: "reset", hostToken })}>↺ Réinitialiser (retour au lobby)</button>
+        onClick={hostRoom.reset}>↺ Réinitialiser (retour au lobby)</button>
     </Shell>
   );
 }
@@ -409,31 +410,26 @@ function HostGame({ code, hostToken, roles }) {
 export default function App() {
   const [view, setView] = useState("home");
   const [code, setCode] = useState(null);
-  const [hostToken, setHostToken] = useState(null);
-  const [playerId, setPlayerId] = useState(null);
-  const [roles, setRoles] = useState(null);
-
-  useEffect(() => { fetchRoles().then(setRoles); }, []);
-
-  if (!roles) return <Shell><MoonHeader subtitle="Chargement…" /></Shell>;
+  const hostRoom = useHostRoom();
+  const playerRoom = usePlayerConnection();
 
   if (view === "home") {
     return <Home goHost={() => setView("host-setup")} goJoin={() => setView("join")} />;
   }
   if (view === "host-setup") {
-    return <HostSetup roles={roles} onCreated={(c, t) => { setCode(c); setHostToken(t); setView("host-lobby"); }} />;
+    return <HostSetup roles={ROLES} hostRoom={hostRoom} onCreated={(c) => { setCode(c); setView("host-lobby"); }} />;
   }
   if (view === "host-lobby") {
-    return <HostLobby code={code} hostToken={hostToken} roles={roles} onLaunched={() => setView("host-game")} />;
+    return <HostLobby code={code} hostRoom={hostRoom} onLaunched={() => setView("host-game")} />;
   }
   if (view === "host-game") {
-    return <HostGame code={code} hostToken={hostToken} roles={roles} />;
+    return <HostGame code={code} hostRoom={hostRoom} roles={ROLES} />;
   }
   if (view === "join") {
-    return <Join onJoined={(c, id) => { setCode(c); setPlayerId(id); setView("player-game"); }} />;
+    return <Join playerRoom={playerRoom} onJoined={() => setView("player-game")} />;
   }
   if (view === "player-game") {
-    return <PlayerGame code={code} playerId={playerId} roles={roles} />;
+    return <PlayerGame playerRoom={playerRoom} roles={ROLES} />;
   }
   return null;
 }
